@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}Import Excel Fatturato{% endblock %}
+
+{% block content %}
+<h5 class="fw-bold text-primary mb-3"><i class="bi bi-file-earmark-excel me-1"></i>Import Excel Fatturato</h5>
+
+{# Step indicator #}
+<div class="step-indicator mb-4 d-flex gap-4">
+  <div class="step {% if step == 'upload' %}active{% endif %}">
+    <span class="step-num">1</span> Carica file
+  </div>
+  <div class="text-muted">→</div>
+  <div class="step {% if step == 'mapping' %}active{% endif %}">
+    <span class="step-num">2</span> Mappa colonne
+  </div>
+  <div class="text-muted">→</div>
+  <div class="step">
+    <span class="step-num">3</span> Conferma import
+  </div>
+</div>
+
+{% if step == 'upload' %}
+<div class="card" style="max-width:560px">
+  <div class="card-header"><i class="bi bi-upload me-1"></i>Seleziona file Excel</div>
+  <div class="card-body">
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('import_excel') }}">
+      <div class="mb-3">
+        <label class="form-label">File Excel (.xlsx, .xls)</label>
+        <input type="file" name="file" accept=".xlsx,.xls" required class="form-control">
+        <div class="form-text">Il file deve contenere i dati di fatturato/spedizione.
+          Nella prossima schermata potrai mappare le colonne.</div>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-arrow-right-circle"></i> Avanti
+      </button>
+    </form>
+  </div>
+</div>
+
+{% elif step == 'mapping' %}
+<form method="POST" action="{{ url_for('import_excel') }}">
+  <input type="hidden" name="df_json" value="{{ df_json }}">
+  <input type="hidden" name="filename" value="{{ filename }}">
+
+  <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-table me-1"></i>Anteprima: {{ filename }}</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered mb-0" style="font-size:.8rem">
+        <thead class="table-light">
+          <tr>{% for col in colonne %}<th>{{ col }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for row in anteprima %}
+          <tr>{% for col in colonne %}<td>{{ row[col] }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-sliders me-1"></i>Mappa le colonne</div>
+    <div class="card-body">
+      <p class="small text-muted mb-3">Seleziona quale colonna del file corrisponde a ciascun campo.
+        I campi con (*) sono facoltativi ma migliorano l'associazione ai contratti.</p>
+      <div class="row g-3">
+        {% macro col_select(name, label, required=false) %}
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold mb-1">{{ label }}{% if required %} <span class="text-danger">*</span>{% endif %}</label>
+          <select name="{{ name }}" class="form-select form-select-sm" {% if required %}required{% endif %}>
+            <option value="">— non presente —</option>
+            {% for col in colonne %}
+            <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endmacro %}
+
+        {{ col_select('col_importo', 'Importo / Valore spedito', required=true) }}
+        {{ col_select('col_data', 'Data documento *') }}
+        {{ col_select('col_documento', 'N° Documento / DDT *') }}
+        {{ col_select('col_descrizione', 'Descrizione *') }}
+        {{ col_select('col_cliente', 'Cliente (nome esatto) *') }}
+        {{ col_select('col_contratto', 'Codice contratto *') }}
+      </div>
+
+      <div class="alert alert-info mt-3 small mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        La colonna <strong>Cliente</strong> e <strong>Codice contratto</strong> vengono confrontate
+        (senza distinzione maiuscole/minuscole) con i dati già presenti nel sistema.
+        Le righe non abbinate verranno importate come non associate e potranno essere gestite manualmente.
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-check-circle"></i> Importa
+    </button>
+    <a href="{{ url_for('import_excel') }}" class="btn btn-outline-secondary">Annulla</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

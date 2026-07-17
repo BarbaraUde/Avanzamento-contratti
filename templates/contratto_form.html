@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb mb-0 small">
+    <li class="breadcrumb-item"><a href="{{ url_for('contratti_lista') }}">Contratti</a></li>
+    <li class="breadcrumb-item active">{{ title }}</li>
+  </ol>
+</nav>
+
+<div class="card" style="max-width:700px">
+  <div class="card-header">{{ title }}</div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">Cliente <span class="text-danger">*</span></label>
+          <select name="cliente_id" id="sel_cliente" required class="form-select">
+            <option value="">— seleziona —</option>
+            {% for c in clienti %}
+            <option value="{{ c.id }}"
+              {% if obj and obj.cliente_id == c.id %}selected{% endif %}>
+              {{ c.nome }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Progetto</label>
+          <select name="progetto_id" id="sel_progetto" class="form-select">
+            <option value="">— nessuno —</option>
+            {% for p in progetti %}
+            <option value="{{ p.id }}"
+              {% if obj and obj.progetto_id == p.id %}selected{% endif %}>
+              {{ p.nome }} ({{ p.cliente.nome }})
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Seleziona prima il cliente per filtrare i progetti.</div>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label">Codice contratto</label>
+          <input type="text" name="codice" class="form-control"
+                 value="{{ obj.codice if obj else '' }}"
+                 placeholder="es. 2024-CLI-001">
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label">Valore totale (€)</label>
+          <input type="text" name="valore_totale" class="form-control"
+                 value="{{ ('%.2f'|format(obj.valore_totale)).replace('.', ',') if obj and obj.valore_totale else '' }}"
+                 placeholder="0,00">
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label">Stato</label>
+          <select name="stato" class="form-select">
+            <option value="aperto" {% if not obj or obj.stato == 'aperto' %}selected{% endif %}>Aperto</option>
+            <option value="in corso" {% if obj and obj.stato == 'in corso' %}selected{% endif %}>In corso</option>
+            <option value="chiuso" {% if obj and obj.stato == 'chiuso' %}selected{% endif %}>Chiuso</option>
+          </select>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Data apertura</label>
+          <input type="date" name="data_apertura" class="form-control"
+                 value="{{ obj.data_apertura.strftime('%Y-%m-%d') if obj and obj.data_apertura else '' }}">
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Data chiusura prevista</label>
+          <input type="date" name="data_chiusura" class="form-control"
+                 value="{{ obj.data_chiusura.strftime('%Y-%m-%d') if obj and obj.data_chiusura else '' }}">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Descrizione</label>
+          <input type="text" name="descrizione" class="form-control"
+                 value="{{ obj.descrizione if obj else '' }}"
+                 placeholder="Breve descrizione del contratto">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Note</label>
+          <textarea name="note" rows="3" class="form-control">{{ obj.note if obj else '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Salva</button>
+        <a href="{{ url_for('contratti_lista') }}" class="btn btn-outline-secondary">Annulla</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Filtra progetti per cliente selezionato
+  const selCliente = document.getElementById('sel_cliente');
+  const selProgetto = document.getElementById('sel_progetto');
+  const currentProgId = {{ obj.progetto_id if obj and obj.progetto_id else 'null' }};
+
+  selCliente.addEventListener('change', function() {
+    const cid = this.value;
+    selProgetto.innerHTML = '<option value="">— nessuno —</option>';
+    if (!cid) return;
+    fetch('/api/progetti?cliente_id=' + cid)
+      .then(r => r.json())
+      .then(data => {
+        data.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.nome;
+          if (p.id == currentProgId) opt.selected = true;
+          selProgetto.appendChild(opt);
+        });
+      });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,636 @@
+{% extends 'base.html' %}
+{% block title %}Contratto {{ c.codice or c.id }}{% endblock %}
+
+{% block content %}
+{# ---- BREADCRUMB ---- #}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb mb-0 small">
+    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Pipeline</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('contratti_lista') }}">Contratti</a></li>
+    <li class="breadcrumb-item active">{{ c.codice or ('#' ~ c.id) }}</li>
+  </ol>
+</nav>
+
+{# ---- HEADER CARD ---- #}
+{% set pct = c.percentuale_avanzamento %}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div>
+        <h5 class="fw-bold mb-1 text-primary">
+          {{ c.codice or ('Contratto #' ~ c.id) }}
+          &nbsp;
+          {% if c.stato == 'aperto' %}
+            <span class="badge badge-aperto fs-6">aperto</span>
+          {% elif c.stato == 'in corso' %}
+            <span class="badge badge-in-corso fs-6">in corso</span>
+          {% else %}
+            <span class="badge badge-chiuso fs-6">chiuso</span>
+          {% endif %}
+        </h5>
+        <div class="text-muted">
+          <i class="bi bi-building me-1"></i><strong>{{ c.cliente.nome }}</strong>
+          {% if c.progetto %}
+            &nbsp;·&nbsp;<i class="bi bi-diagram-3 me-1"></i>{{ c.progetto.nome }}
+          {% endif %}
+        </div>
+        {% if c.descrizione %}
+        <div class="mt-1 text-secondary">{{ c.descrizione }}</div>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('contratto_modifica', id=c.id) }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-pencil"></i> Modifica
+        </a>
+        <form method="POST" action="{{ url_for('contratto_elimina', id=c.id) }}"
+              onsubmit="return confirm('Eliminare questo contratto e tutti i dati collegati?')">
+          <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Elimina</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="small text-muted">Valore contratto</div>
+        <div class="fw-bold fs-5">{{ c.valore_totale|euro }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="small text-muted">Spedito / Fatturato</div>
+        <div class="fw-bold fs-5 text-success">{{ c.valore_spedito|euro }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="small text-muted">Residuo</div>
+        <div class="fw-bold fs-5 text-danger">{{ c.valore_residuo|euro }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="small text-muted">Varianti</div>
+        <div class="fw-bold fs-5">{{ c.num_varianti }}</div>
+      </div>
+    </div>
+
+    <div class="mb-1 small fw-semibold text-{{ pct|avanz_class }}">Avanzamento: {{ pct }}%</div>
+    <div class="progress" style="height:14px">
+      <div class="progress-bar bg-{{ pct|avanz_class }} fw-semibold"
+           style="width:{{ pct }}%; font-size:.75rem">
+        {% if pct > 10 %}{{ pct }}%{% endif %}
+      </div>
+    </div>
+
+    {% if c.data_apertura or c.data_chiusura or c.note %}
+    <div class="row mt-3 small text-muted g-2">
+      {% if c.data_apertura %}<div class="col-auto">Apertura: {{ c.data_apertura|data_it }}</div>{% endif %}
+      {% if c.data_chiusura %}<div class="col-auto">Chiusura prevista: {{ c.data_chiusura|data_it }}</div>{% endif %}
+      {% if c.note %}<div class="col-12 mt-1 fst-italic">{{ c.note }}</div>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ---- TABS ---- #}
+<ul class="nav nav-tabs mb-0" id="dettaglioTabs">
+  <li class="nav-item">
+    <a class="nav-link active" href="#ordini" data-bs-toggle="tab" id="tab-ordini">
+      <i class="bi bi-cart3"></i> Ordini <span class="badge bg-secondary ms-1">{{ ordini|length }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#varianti" data-bs-toggle="tab" id="tab-varianti">
+      <i class="bi bi-pencil-square"></i> Varianti <span class="badge bg-secondary ms-1">{{ varianti|length }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#allegati" data-bs-toggle="tab" id="tab-allegati">
+      <i class="bi bi-paperclip"></i> Allegati <span class="badge bg-secondary ms-1">{{ c.allegati|length }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#articoli" data-bs-toggle="tab" id="tab-articoli">
+      <i class="bi bi-box-seam"></i> Articoli <span class="badge bg-secondary ms-1">{{ articoli|length }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#fatturato" data-bs-toggle="tab" id="tab-fatturato">
+      <i class="bi bi-receipt"></i> Fatturato <span class="badge bg-secondary ms-1">{{ c.righe_fatturato|length }}</span>
+    </a>
+  </li>
+</ul>
+
+<div class="tab-content card border-top-0 rounded-0 rounded-bottom">
+
+  {# ---- ORDINI ---- #}
+  <div class="tab-pane fade show active p-3" id="ordini">
+    {% if ordini %}
+    <div class="table-responsive mb-3">
+      <table class="table table-sm table-hover mb-0">
+        <thead>
+          <tr>
+            <th>N° Ordine</th>
+            <th>Data</th>
+            <th class="text-end">Importo</th>
+            <th>Stato</th>
+            <th>Note</th>
+            <th>File</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in ordini %}
+          <tr>
+            <td class="fw-semibold">{{ o.numero_ordine or '—' }}</td>
+            <td>{{ o.data|data_it }}</td>
+            <td class="text-end">{{ o.importo|euro }}</td>
+            <td>
+              {% if o.stato == 'evaso' %}
+                <span class="badge bg-success">evaso</span>
+              {% elif o.stato == 'parziale' %}
+                <span class="badge bg-warning text-dark">parziale</span>
+              {% else %}
+                <span class="badge bg-secondary">aperto</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ o.note or '' }}</td>
+            <td>—</td>
+            <td>
+              <form method="POST" action="{{ url_for('ordine_elimina', id=o.id) }}"
+                    onsubmit="return confirm('Eliminare l\'ordine?')">
+                <button class="btn btn-link btn-sm text-danger p-0"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Nessun ordine collegato.</p>
+    {% endif %}
+
+    <button class="btn btn-outline-primary btn-sm" onclick="toggleAddForm('add-ordine')">
+      <i class="bi bi-plus-lg"></i> Aggiungi ordine
+    </button>
+    <div id="add-ordine" class="add-form-section mt-2" style="display:none">
+      <form method="POST" action="{{ url_for('ordine_nuovo', contratto_id=c.id) }}">
+        <div class="row g-2">
+          <div class="col-12 col-md-3">
+            <label class="form-label small mb-1">N° Ordine</label>
+            <input type="text" name="numero_ordine" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Data</label>
+            <input type="date" name="data" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Importo (€)</label>
+            <input type="text" name="importo" class="form-control form-control-sm" placeholder="0,00">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Stato</label>
+            <select name="stato" class="form-select form-select-sm">
+              <option value="aperto">Aperto</option>
+              <option value="parziale">Parziale</option>
+              <option value="evaso">Evaso</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small mb-1">Note</label>
+            <input type="text" name="note" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="mt-2">
+          <button type="submit" class="btn btn-primary btn-sm">Salva ordine</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="toggleAddForm('add-ordine')">Annulla</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# ---- VARIANTI ---- #}
+  <div class="tab-pane fade p-3" id="varianti">
+    {% if varianti %}
+    <div class="table-responsive mb-3">
+      <table class="table table-sm table-hover mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Data</th>
+            <th>Descrizione</th>
+            <th class="text-end">Δ Valore</th>
+            <th>Documento allegato</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in varianti %}
+          <tr>
+            <td><span class="badge bg-warning text-dark">{{ v.numero }}</span></td>
+            <td>{{ v.data|data_it }}</td>
+            <td>{{ v.descrizione or '—' }}</td>
+            <td class="text-end {% if v.valore_delta > 0 %}text-success{% elif v.valore_delta < 0 %}text-danger{% endif %}">
+              {% if v.valore_delta %}
+                {{ '%+.2f'|format(v.valore_delta)|replace('.', ',')|replace(',', '.', 1) }} €
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if v.percorso_allegato %}
+                {% set ext = v.percorso_allegato.rsplit('.', 1)[-1].lower() %}
+                <div class="d-flex align-items-center gap-2">
+                  <span class="percorso-rete text-truncate" style="max-width:200px"
+                        data-path="{{ v.percorso_allegato }}"
+                        onclick="copyPercorso(this)" title="{{ v.percorso_allegato }}">
+                    <i class="bi bi-file-earmark"></i> {{ v.percorso_allegato.split('\\')[-1] }}
+                  </span>
+                  {% if ext == 'pdf' %}
+                    <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                            data-anteprima-path="{{ v.percorso_allegato }}"
+                            data-anteprima-nome="{{ v.percorso_allegato.split('\\')[-1] }}"
+                            title="Anteprima PDF">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  {% endif %}
+                  <a href="{{ url_for('file_serve', path=v.percorso_allegato) }}"
+                     class="btn btn-outline-secondary btn-sm py-0 px-1" target="_blank"
+                     title="Apri / Scarica">
+                    <i class="bi bi-download"></i>
+                  </a>
+                </div>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('variante_elimina', id=v.id) }}"
+                    onsubmit="return confirm('Eliminare la variante?')">
+                <button class="btn btn-link btn-sm text-danger p-0"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Nessuna variante registrata.</p>
+    {% endif %}
+
+    <button class="btn btn-outline-primary btn-sm" onclick="toggleAddForm('add-variante')">
+      <i class="bi bi-plus-lg"></i> Aggiungi variante
+    </button>
+    <div id="add-variante" class="add-form-section mt-2" style="display:none">
+      <form method="POST" action="{{ url_for('variante_nuova', contratto_id=c.id) }}">
+        <div class="row g-2">
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Data</label>
+            <input type="date" name="data" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Δ Valore (€)</label>
+            <input type="text" name="valore_delta" class="form-control form-control-sm"
+                   placeholder="0,00 (neg. per riduzione)">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small mb-1">Descrizione</label>
+            <input type="text" name="descrizione" class="form-control form-control-sm">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small mb-1">Percorso allegato (rete)</label>
+            <input type="text" name="percorso_allegato" class="form-control form-control-sm"
+                   placeholder="\\server\cartella\file.pdf">
+          </div>
+        </div>
+        <div class="mt-2">
+          <button type="submit" class="btn btn-primary btn-sm">Salva variante</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="toggleAddForm('add-variante')">Annulla</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# ---- ALLEGATI ---- #}
+  <div class="tab-pane fade p-3" id="allegati">
+    {% if c.allegati %}
+    <div class="table-responsive mb-3">
+      <table class="table table-sm table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Nome documento</th>
+            <th>Anteprima / Apri</th>
+            <th>Aggiunto il</th>
+            <th>Note</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in c.allegati %}
+          {% set ext = a.percorso.rsplit('.', 1)[-1].lower() if '.' in a.percorso else '' %}
+          <tr>
+            <td><span class="badge bg-light text-dark border">{{ a.tipo }}</span></td>
+            <td class="fw-semibold">
+              <span class="percorso-rete" data-path="{{ a.percorso }}"
+                    onclick="copyPercorso(this)" title="Copia percorso: {{ a.percorso }}">
+                <i class="bi bi-clipboard me-1"></i>{{ a.nome }}
+              </span>
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                {% if ext == 'pdf' %}
+                  <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                          data-anteprima-path="{{ a.percorso }}"
+                          data-anteprima-nome="{{ a.nome }}"
+                          title="Anteprima PDF">
+                    <i class="bi bi-eye"></i> Anteprima
+                  </button>
+                {% elif ext in ('png', 'jpg', 'jpeg', 'gif', 'webp') %}
+                  <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                          data-anteprima-path="{{ a.percorso }}"
+                          data-anteprima-nome="{{ a.nome }}"
+                          title="Anteprima immagine">
+                    <i class="bi bi-image"></i> Anteprima
+                  </button>
+                {% endif %}
+                <a href="{{ url_for('file_serve', path=a.percorso) }}"
+                   class="btn btn-outline-secondary btn-sm py-0 px-2" target="_blank"
+                   title="Apri o scarica il file">
+                  <i class="bi bi-download"></i> Apri
+                </a>
+              </div>
+            </td>
+            <td class="small text-muted">{{ a.data_aggiunta|data_it }}</td>
+            <td class="small text-muted">{{ a.note or '' }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('allegato_elimina', id=a.id) }}"
+                    onsubmit="return confirm('Eliminare l\'allegato?')">
+                <button class="btn btn-link btn-sm text-danger p-0"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Nessun allegato registrato.</p>
+    {% endif %}
+
+    <button class="btn btn-outline-primary btn-sm" onclick="toggleAddForm('add-allegato')">
+      <i class="bi bi-plus-lg"></i> Aggiungi allegato
+    </button>
+    <div id="add-allegato" class="add-form-section mt-2" style="display:none">
+      <form method="POST" action="{{ url_for('allegato_nuovo', contratto_id=c.id) }}">
+        <div class="row g-2">
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Tipo</label>
+            <select name="tipo" class="form-select form-select-sm">
+              <option value="contratto">Contratto</option>
+              <option value="offerta">Offerta</option>
+              <option value="ordine">Ordine</option>
+              <option value="altro">Altro</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small mb-1">Nome documento *</label>
+            <input type="text" name="nome" required class="form-control form-control-sm"
+                   placeholder="es. Contratto firmato rev2">
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label small mb-1">Percorso cartella di rete *</label>
+            <input type="text" name="percorso" required class="form-control form-control-sm"
+                   placeholder="\\server\Contratti\cliente\file.pdf">
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label small mb-1">Note</label>
+            <input type="text" name="note" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="mt-2">
+          <button type="submit" class="btn btn-primary btn-sm">Salva allegato</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="toggleAddForm('add-allegato')">Annulla</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# ---- ARTICOLI ---- #}
+  <div class="tab-pane fade p-3" id="articoli">
+
+    {# Filtro pill #}
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+      <span class="small fw-semibold text-muted">Filtra:</span>
+      <div class="btn-group btn-group-sm" role="group" id="filtroArticoli">
+        <button type="button" class="btn btn-outline-secondary active"
+                onclick="filtraArticoli('tutti', this)">Tutti</button>
+        <button type="button" class="btn btn-outline-secondary"
+                onclick="filtraArticoli('da-spedire', this)">Da spedire</button>
+        <button type="button" class="btn btn-outline-secondary"
+                onclick="filtraArticoli('parziale', this)">Parziale</button>
+        <button type="button" class="btn btn-outline-secondary"
+                onclick="filtraArticoli('completo', this)">Completo</button>
+      </div>
+      {% if articoli %}
+      <span class="ms-auto small text-muted">
+        Totale articoli: <strong>{{ articoli|length }}</strong>
+        &nbsp;·&nbsp;
+        Valore tot.: <strong>{{ articoli|sum(attribute='valore_articolo')|euro }}</strong>
+      </span>
+      {% endif %}
+    </div>
+
+    {% if articoli %}
+    <div class="table-responsive mb-3">
+      <table class="table table-sm table-hover mb-0" id="tabellaArticoli">
+        <thead>
+          <tr>
+            <th>Codice</th>
+            <th>Descrizione</th>
+            <th class="text-end">Q. Totale</th>
+            <th class="text-end">Q. Spedita</th>
+            <th>U.M.</th>
+            <th style="min-width:120px">Avanzamento</th>
+            <th class="text-end">Prezzo unit.</th>
+            <th class="text-end">Valore</th>
+            <th>Stato</th>
+            <th>Agg. spedito</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in articoli %}
+          {% set pct_a = a.percentuale_spedita %}
+          <tr data-stato="{{ a.stato_spedizione }}">
+            <td class="fw-semibold font-monospace">{{ a.codice or '—' }}</td>
+            <td>{{ a.descrizione or '—' }}</td>
+            <td class="text-end">{{ a.quantita_totale|int }}</td>
+            <td class="text-end fw-semibold {% if pct_a >= 100 %}text-success{% elif pct_a > 0 %}text-warning{% else %}text-danger{% endif %}">
+              {{ a.quantita_spedita|int }}
+            </td>
+            <td class="text-muted">{{ a.unita_misura }}</td>
+            <td>
+              <div class="progress mb-1">
+                <div class="progress-bar bg-{% if pct_a >= 100 %}success{% elif pct_a > 0 %}warning{% else %}danger{% endif %}"
+                     style="width:{{ pct_a }}%"></div>
+              </div>
+              <span class="progress-label text-{% if pct_a >= 100 %}success{% elif pct_a > 0 %}warning{% else %}danger{% endif %}">
+                {{ pct_a }}%
+              </span>
+            </td>
+            <td class="text-end">{{ a.prezzo_unitario|euro }}</td>
+            <td class="text-end">{{ a.valore_articolo|euro }}</td>
+            <td>
+              {% if a.stato_spedizione == 'completo' %}
+                <span class="badge bg-success">completo</span>
+              {% elif a.stato_spedizione == 'parziale' %}
+                <span class="badge bg-warning text-dark">parziale</span>
+              {% else %}
+                <span class="badge bg-danger">da spedire</span>
+              {% endif %}
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('articolo_aggiorna', id=a.id) }}"
+                    class="d-flex align-items-center gap-1">
+                <input type="number" name="quantita_spedita" value="{{ a.quantita_spedita|int }}"
+                       min="0" max="{{ a.quantita_totale|int }}" step="1"
+                       class="form-control form-control-sm" style="width:70px">
+                <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-1"
+                        title="Aggiorna">
+                  <i class="bi bi-check-lg"></i>
+                </button>
+              </form>
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('articolo_elimina', id=a.id) }}"
+                    onsubmit="return confirm('Eliminare articolo?')">
+                <button class="btn btn-link btn-sm text-danger p-0"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="table-light fw-semibold">
+          <tr>
+            <td colspan="7">Totale</td>
+            <td class="text-end">{{ articoli|sum(attribute='valore_articolo')|euro }}</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Nessun articolo registrato per questo contratto.</p>
+    {% endif %}
+
+    <button class="btn btn-outline-primary btn-sm" onclick="toggleAddForm('add-articolo')">
+      <i class="bi bi-plus-lg"></i> Aggiungi articolo
+    </button>
+    <div id="add-articolo" class="add-form-section mt-2" style="display:none">
+      <form method="POST" action="{{ url_for('articolo_nuovo', contratto_id=c.id) }}">
+        <div class="row g-2">
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Codice articolo</label>
+            <input type="text" name="codice" class="form-control form-control-sm"
+                   placeholder="es. AL-PR-1042">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small mb-1">Descrizione *</label>
+            <input type="text" name="descrizione" required class="form-control form-control-sm">
+          </div>
+          <div class="col-4 col-md-1">
+            <label class="form-label small mb-1">Q. totale</label>
+            <input type="number" name="quantita_totale" class="form-control form-control-sm"
+                   placeholder="0" min="0" step="1" value="0">
+          </div>
+          <div class="col-4 col-md-1">
+            <label class="form-label small mb-1">Q. spedita</label>
+            <input type="number" name="quantita_spedita" class="form-control form-control-sm"
+                   placeholder="0" min="0" step="1" value="0">
+          </div>
+          <div class="col-4 col-md-1">
+            <label class="form-label small mb-1">U.M.</label>
+            <input type="text" name="unita_misura" class="form-control form-control-sm"
+                   placeholder="pz" value="pz">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Prezzo unit. (€)</label>
+            <input type="text" name="prezzo_unitario" class="form-control form-control-sm"
+                   placeholder="0,00">
+          </div>
+          <div class="col-12 col-md-1">
+            <label class="form-label small mb-1">Note</label>
+            <input type="text" name="note" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="mt-2">
+          <button type="submit" class="btn btn-primary btn-sm">Salva articolo</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="toggleAddForm('add-articolo')">Annulla</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# ---- FATTURATO ---- #}
+  <div class="tab-pane fade p-3" id="fatturato">
+    {% if c.righe_fatturato %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Data doc.</th>
+            <th>N° documento</th>
+            <th>Descrizione</th>
+            <th class="text-end">Importo</th>
+            <th>Fonte</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in c.righe_fatturato|sort(attribute='data_documento') %}
+          <tr>
+            <td>{{ r.data_documento|data_it }}</td>
+            <td>{{ r.numero_documento or '—' }}</td>
+            <td class="text-muted small">{{ r.descrizione or '—' }}</td>
+            <td class="text-end">{{ r.importo|euro }}</td>
+            <td class="text-muted small">{{ r.fonte or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="fw-semibold table-light">
+          <tr>
+            <td colspan="3">Totale spedito</td>
+            <td class="text-end text-success">{{ c.valore_spedito|euro }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small">Nessuna riga di fatturato associata a questo contratto.
+      <a href="{{ url_for('import_excel') }}">Importa da Excel</a></p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const hash = window.location.hash;
+  if (hash) {
+    const tab = document.querySelector('[href="' + hash + '"]');
+    if (tab) { new bootstrap.Tab(tab).show(); }
+  }
+});
+
+function filtraArticoli(stato, btn) {
+  document.querySelectorAll('#filtroArticoli .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#tabellaArticoli tbody tr').forEach(tr => {
+    if (stato === 'tutti') {
+      tr.style.display = '';
+    } else {
+      tr.style.display = tr.dataset.stato === stato ? '' : 'none';
+    }
+  });
+}
+</script>
+{% endblock %}

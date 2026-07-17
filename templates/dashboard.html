@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold text-primary">
+    <i class="bi bi-speedometer2 me-1"></i>Pipeline Commesse
+  </h5>
+  <a href="{{ url_for('contratto_nuovo') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Nuovo contratto
+  </a>
+</div>
+
+{# ---- STAT CARDS ---- #}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3">
+      <div class="stat-value">{{ contratti|length }}</div>
+      <div class="stat-label">Contratti</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3">
+      <div class="stat-value">{{ tot_valore|euro }}</div>
+      <div class="stat-label">Valore totale</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card green p-3">
+      <div class="stat-value">{{ tot_spedito|euro }}</div>
+      <div class="stat-label">Spedito / Fatturato</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card orange p-3">
+      <div class="stat-value">{{ tot_residuo|euro }}</div>
+      <div class="stat-label">Residuo da spedire</div>
+    </div>
+  </div>
+</div>
+
+{# ---- FILTRI ---- #}
+<form method="GET" action="{{ url_for('dashboard') }}" class="filter-bar mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-sm-4 col-md-3">
+      <label class="form-label mb-1 small fw-semibold">Cliente</label>
+      <select name="cliente_id" id="f_cliente" class="form-select form-select-sm"
+              onchange="this.form.submit()">
+        <option value="">— tutti —</option>
+        {% for cl in clienti %}
+        <option value="{{ cl.id }}" {% if cl.id == cliente_id %}selected{% endif %}>{{ cl.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-sm-4 col-md-3">
+      <label class="form-label mb-1 small fw-semibold">Progetto</label>
+      <select name="progetto_id" id="f_progetto" class="form-select form-select-sm">
+        <option value="">— tutti —</option>
+        {% for p in progetti %}
+        <option value="{{ p.id }}" {% if p.id == progetto_id %}selected{% endif %}>{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-sm-4 col-md-2">
+      <label class="form-label mb-1 small fw-semibold">Stato</label>
+      <select name="stato" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="">— tutti —</option>
+        <option value="aperto" {% if stato_f == 'aperto' %}selected{% endif %}>Aperto</option>
+        <option value="in corso" {% if stato_f == 'in corso' %}selected{% endif %}>In corso</option>
+        <option value="chiuso" {% if stato_f == 'chiuso' %}selected{% endif %}>Chiuso</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="bi bi-funnel"></i> Filtra
+      </button>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm ms-1">
+        <i class="bi bi-x"></i>
+      </a>
+    </div>
+  </div>
+</form>
+
+{# ---- TABELLA ---- #}
+{% if contratti %}
+<div class="card">
+  <div class="card-header">
+    <i class="bi bi-table me-1"></i>Contratti aperti
+    <span class="badge bg-secondary ms-2">{{ contratti|length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Progetto</th>
+          <th>Contratto</th>
+          <th class="text-end">Valore</th>
+          <th class="text-end">Spedito</th>
+          <th style="min-width:140px">Avanzamento</th>
+          <th class="text-end">Residuo</th>
+          <th>Stato</th>
+          <th class="text-center">Var.</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contratti %}
+        {% set pct = c.percentuale_avanzamento %}
+        <tr>
+          <td class="fw-semibold">{{ c.cliente.nome }}</td>
+          <td class="text-muted">{{ c.progetto.nome if c.progetto else '—' }}</td>
+          <td>
+            <a href="{{ url_for('contratto_dettaglio', id=c.id) }}" class="text-decoration-none fw-semibold">
+              {{ c.codice or ('#' ~ c.id) }}
+            </a>
+            {% if c.descrizione %}
+            <div class="text-muted" style="font-size:.78rem">{{ c.descrizione[:60] }}{% if c.descrizione|length > 60 %}…{% endif %}</div>
+            {% endif %}
+          </td>
+          <td class="text-end">{{ c.valore_totale|euro }}</td>
+          <td class="text-end">{{ c.valore_spedito|euro }}</td>
+          <td>
+            <div class="progress mb-1">
+              <div class="progress-bar bg-{{ pct|avanz_class }}" style="width:{{ pct }}%"></div>
+            </div>
+            <span class="progress-label text-{{ pct|avanz_class }}">{{ pct }}%</span>
+          </td>
+          <td class="text-end fw-semibold text-danger">{{ c.valore_residuo|euro }}</td>
+          <td>
+            {% if c.stato == 'aperto' %}
+              <span class="badge badge-aperto">aperto</span>
+            {% elif c.stato == 'in corso' %}
+              <span class="badge badge-in-corso">in corso</span>
+            {% else %}
+              <span class="badge badge-chiuso">chiuso</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if c.num_varianti > 0 %}
+              <span class="badge bg-warning text-dark">{{ c.num_varianti }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('contratto_dettaglio', id=c.id) }}"
+               class="btn btn-outline-primary btn-sm py-0 px-2">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if contratti|length > 1 %}
+      <tfoot class="table-light fw-semibold">
+        <tr>
+          <td colspan="3">Totale</td>
+          <td class="text-end">{{ tot_valore|euro }}</td>
+          <td class="text-end">{{ tot_spedito|euro }}</td>
+          <td>
+            <div class="progress mb-1">
+              <div class="progress-bar bg-{{ avg_avanz|avanz_class }}" style="width:{{ avg_avanz }}%"></div>
+            </div>
+            <span class="progress-label">{{ avg_avanz }}%</span>
+          </td>
+          <td class="text-end text-danger">{{ tot_residuo|euro }}</td>
+          <td colspan="3"></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-inbox display-4"></i>
+  <p class="mt-2">Nessun contratto trovato con i filtri selezionati.</p>
+  <a href="{{ url_for('contratto_nuovo') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Crea il primo contratto
+  </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  initClienteProgettoFilter('f_cliente', 'f_progetto');
+</script>
+{% endblock %}

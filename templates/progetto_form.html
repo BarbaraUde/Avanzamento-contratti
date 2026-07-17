@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb mb-0 small">
+    <li class="breadcrumb-item"><a href="{{ url_for('progetti_lista') }}">Progetti</a></li>
+    <li class="breadcrumb-item active">{{ title }}</li>
+  </ol>
+</nav>
+
+<div class="card" style="max-width:600px">
+  <div class="card-header">{{ title }}</div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="mb-3">
+        <label class="form-label">Cliente <span class="text-danger">*</span></label>
+        <select name="cliente_id" required class="form-select">
+          <option value="">— seleziona —</option>
+          {% for c in clienti %}
+          <option value="{{ c.id }}" {% if obj and obj.cliente_id == c.id %}selected{% endif %}>
+            {{ c.nome }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Nome progetto <span class="text-danger">*</span></label>
+        <input type="text" name="nome" required class="form-control"
+               value="{{ obj.nome if obj else '' }}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Codice progetto</label>
+        <input type="text" name="codice" class="form-control"
+               value="{{ obj.codice if obj else '' }}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Stato</label>
+        <select name="stato" class="form-select">
+          <option value="aperto" {% if not obj or obj.stato == 'aperto' %}selected{% endif %}>Aperto</option>
+          <option value="chiuso" {% if obj and obj.stato == 'chiuso' %}selected{% endif %}>Chiuso</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Descrizione</label>
+        <textarea name="descrizione" rows="3" class="form-control">{{ obj.descrizione if obj else '' }}</textarea>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Salva</button>
+        <a href="{{ url_for('progetti_lista') }}" class="btn btn-outline-secondary">Annulla</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

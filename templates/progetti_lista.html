@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Progetti{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="fw-bold text-primary mb-0"><i class="bi bi-diagram-3 me-1"></i>Progetti</h5>
+  <a href="{{ url_for('progetto_nuovo') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Nuovo progetto
+  </a>
+</div>
+
+<form method="GET" class="filter-bar mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <label class="form-label small fw-semibold mb-1">Filtra per cliente</label>
+      <select name="cliente_id" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="">— tutti —</option>
+        {% for c in clienti %}
+        <option value="{{ c.id }}" {% if c.id == cliente_id_sel %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <a href="{{ url_for('progetti_lista') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-x"></i> Reset
+      </a>
+    </div>
+  </div>
+</form>
+
+{% if progetti %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Progetto</th>
+          <th>Codice</th>
+          <th>Cliente</th>
+          <th>Stato</th>
+          <th class="text-center">Contratti</th>
+          <th>Descrizione</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in progetti %}
+        <tr>
+          <td class="fw-semibold">{{ p.nome }}</td>
+          <td class="text-muted">{{ p.codice or '—' }}</td>
+          <td>{{ p.cliente.nome }}</td>
+          <td>
+            {% if p.stato == 'chiuso' %}
+              <span class="badge bg-secondary">chiuso</span>
+            {% else %}
+              <span class="badge bg-success">aperto</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('contratti_lista', progetto_id=p.id) }}"
+               class="badge bg-light text-dark border text-decoration-none">
+              {{ p.contratti|length }}
+            </a>
+          </td>
+          <td class="text-muted small">
+            {{ p.descrizione[:60] if p.descrizione else '' }}
+            {% if p.descrizione and p.descrizione|length > 60 %}…{% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('progetto_modifica', id=p.id) }}"
+               class="btn btn-outline-secondary btn-sm py-0 px-2 me-1">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form method="POST" action="{{ url_for('progetto_elimina', id=p.id) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('Eliminare il progetto?')">
+              <button class="btn btn-outline-danger btn-sm py-0 px-2">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-diagram-3 display-4"></i>
+  <p class="mt-2">Nessun progetto trovato.</p>
+  <a href="{{ url_for('progetto_nuovo') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Nuovo progetto
+  </a>
+</div>
+{% endif %}
+{% endblock %}

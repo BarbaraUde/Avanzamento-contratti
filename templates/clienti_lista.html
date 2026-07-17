@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Clienti{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="fw-bold text-primary mb-0"><i class="bi bi-building me-1"></i>Clienti</h5>
+  <a href="{{ url_for('cliente_nuovo') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Nuovo cliente
+  </a>
+</div>
+
+{% if clienti %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Nome / Ragione sociale</th>
+          <th>Codice</th>
+          <th class="text-center">Progetti</th>
+          <th class="text-center">Contratti</th>
+          <th>Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clienti %}
+        <tr>
+          <td class="fw-semibold">{{ c.nome }}</td>
+          <td class="text-muted">{{ c.codice or '—' }}</td>
+          <td class="text-center">
+            <a href="{{ url_for('progetti_lista', cliente_id=c.id) }}"
+               class="badge bg-light text-dark border text-decoration-none">
+              {{ c.progetti|length }}
+            </a>
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('contratti_lista', cliente_id=c.id) }}"
+               class="badge bg-light text-dark border text-decoration-none">
+              {{ c.contratti|length }}
+            </a>
+          </td>
+          <td class="text-muted small">{{ c.note or '' }}</td>
+          <td class="text-end">
+            <a href="{{ url_for('cliente_modifica', id=c.id) }}"
+               class="btn btn-outline-secondary btn-sm py-0 px-2 me-1">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form method="POST" action="{{ url_for('cliente_elimina', id=c.id) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('Eliminare il cliente e tutti i suoi dati?')">
+              <button class="btn btn-outline-danger btn-sm py-0 px-2">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-building display-4"></i>
+  <p class="mt-2">Nessun cliente. Inizia aggiungendo il primo.</p>
+  <a href="{{ url_for('cliente_nuovo') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Nuovo cliente
+  </a>
+</div>
+{% endif %}
+{% endblock %}
