@@ -17,8 +17,8 @@
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
       <div>
-        <h5 class="fw-bold mb-1 text-primary">
-          {{ c.codice or ('Contratto #' ~ c.id) }}
+        <h5 class="fw-bold mb-1">
+          <span class="codice-contratto">{{ c.codice or ('Contratto #' ~ c.id) }}</span>
           &nbsp;
           {% if c.stato == 'aperto' %}
             <span class="badge badge-aperto fs-6">aperto</span>
@@ -149,7 +149,22 @@
               {% endif %}
             </td>
             <td class="text-muted small">{{ o.note or '' }}</td>
-            <td>—</td>
+            <td>
+              {% if o.percorso_allegato %}
+                <div class="d-flex gap-1">
+                  <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                          data-anteprima-path="{{ o.percorso_allegato }}"
+                          data-anteprima-nome="{{ o.percorso_allegato.split('\\')[-1] }}"
+                          title="Anteprima">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <a href="{{ url_for('file_serve', path=o.percorso_allegato) }}"
+                     class="btn btn-outline-secondary btn-sm py-0 px-1" target="_blank" title="Apri / Scarica">
+                    <i class="bi bi-download"></i>
+                  </a>
+                </div>
+              {% else %}—{% endif %}
+            </td>
             <td>
               <form method="POST" action="{{ url_for('ordine_elimina', id=o.id) }}"
                     onsubmit="return confirm('Eliminare l\'ordine?')">
@@ -194,6 +209,17 @@
           <div class="col-12 col-md-3">
             <label class="form-label small mb-1">Note</label>
             <input type="text" name="note" class="form-control form-control-sm">
+          </div>
+          <div class="col-12">
+            <label class="form-label small mb-1">Documento allegato (opzionale)</label>
+            <div class="file-picker-field">
+              <input type="hidden" name="percorso_allegato" id="ordine-percorso">
+              <span class="file-picker-label text-muted" id="ordine-percorso-label">Nessun file selezionato</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      onclick="apriSelettoreFile('ordine-percorso', 'ordine-percorso-label')">
+                <i class="bi bi-folder2-open"></i> Sfoglia cartella documenti
+              </button>
+            </div>
           </div>
         </div>
         <div class="mt-2">
@@ -240,14 +266,12 @@
                         onclick="copyPercorso(this)" title="{{ v.percorso_allegato }}">
                     <i class="bi bi-file-earmark"></i> {{ v.percorso_allegato.split('\\')[-1] }}
                   </span>
-                  {% if ext == 'pdf' %}
-                    <button class="btn btn-outline-secondary btn-sm py-0 px-1"
-                            data-anteprima-path="{{ v.percorso_allegato }}"
-                            data-anteprima-nome="{{ v.percorso_allegato.split('\\')[-1] }}"
-                            title="Anteprima PDF">
-                      <i class="bi bi-eye"></i>
-                    </button>
-                  {% endif %}
+                  <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                          data-anteprima-path="{{ v.percorso_allegato }}"
+                          data-anteprima-nome="{{ v.percorso_allegato.split('\\')[-1] }}"
+                          title="Anteprima">
+                    <i class="bi bi-eye"></i>
+                  </button>
                   <a href="{{ url_for('file_serve', path=v.percorso_allegato) }}"
                      class="btn btn-outline-secondary btn-sm py-0 px-1" target="_blank"
                      title="Apri / Scarica">
@@ -291,9 +315,15 @@
             <input type="text" name="descrizione" class="form-control form-control-sm">
           </div>
           <div class="col-12 col-md-4">
-            <label class="form-label small mb-1">Percorso allegato (rete)</label>
-            <input type="text" name="percorso_allegato" class="form-control form-control-sm"
-                   placeholder="\\server\cartella\file.pdf">
+            <label class="form-label small mb-1">Documento allegato</label>
+            <div class="file-picker-field">
+              <input type="hidden" name="percorso_allegato" id="variante-percorso">
+              <span class="file-picker-label text-muted" id="variante-percorso-label">Nessun file selezionato</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      onclick="apriSelettoreFile('variante-percorso', 'variante-percorso-label')">
+                <i class="bi bi-folder2-open"></i> Sfoglia
+              </button>
+            </div>
           </div>
         </div>
         <div class="mt-2">
@@ -333,21 +363,12 @@
             </td>
             <td>
               <div class="d-flex gap-1">
-                {% if ext == 'pdf' %}
-                  <button class="btn btn-outline-secondary btn-sm py-0 px-2"
-                          data-anteprima-path="{{ a.percorso }}"
-                          data-anteprima-nome="{{ a.nome }}"
-                          title="Anteprima PDF">
-                    <i class="bi bi-eye"></i> Anteprima
-                  </button>
-                {% elif ext in ('png', 'jpg', 'jpeg', 'gif', 'webp') %}
-                  <button class="btn btn-outline-secondary btn-sm py-0 px-2"
-                          data-anteprima-path="{{ a.percorso }}"
-                          data-anteprima-nome="{{ a.nome }}"
-                          title="Anteprima immagine">
-                    <i class="bi bi-image"></i> Anteprima
-                  </button>
-                {% endif %}
+                <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                        data-anteprima-path="{{ a.percorso }}"
+                        data-anteprima-nome="{{ a.nome }}"
+                        title="Anteprima">
+                  <i class="bi bi-eye"></i> Anteprima
+                </button>
                 <a href="{{ url_for('file_serve', path=a.percorso) }}"
                    class="btn btn-outline-secondary btn-sm py-0 px-2" target="_blank"
                    title="Apri o scarica il file">
@@ -393,9 +414,15 @@
                    placeholder="es. Contratto firmato rev2">
           </div>
           <div class="col-12 col-md-5">
-            <label class="form-label small mb-1">Percorso cartella di rete *</label>
-            <input type="text" name="percorso" required class="form-control form-control-sm"
-                   placeholder="\\server\Contratti\cliente\file.pdf">
+            <label class="form-label small mb-1">Documento *</label>
+            <div class="file-picker-field">
+              <input type="hidden" name="percorso" id="allegato-percorso" required>
+              <span class="file-picker-label text-muted" id="allegato-percorso-label">Nessun file selezionato</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      onclick="apriSelettoreFile('allegato-percorso', 'allegato-percorso-label')">
+                <i class="bi bi-folder2-open"></i> Sfoglia cartella documenti
+              </button>
+            </div>
           </div>
           <div class="col-12 col-md-2">
             <label class="form-label small mb-1">Note</label>
@@ -450,6 +477,7 @@
             <th class="text-end">Prezzo unit.</th>
             <th class="text-end">Valore</th>
             <th>Stato</th>
+            <th>File</th>
             <th>Agg. spedito</th>
             <th></th>
           </tr>
@@ -486,6 +514,22 @@
               {% endif %}
             </td>
             <td>
+              {% if a.percorso_allegato %}
+                <div class="d-flex gap-1">
+                  <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                          data-anteprima-path="{{ a.percorso_allegato }}"
+                          data-anteprima-nome="{{ a.percorso_allegato.split('\\')[-1] }}"
+                          title="Anteprima">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <a href="{{ url_for('file_serve', path=a.percorso_allegato) }}"
+                     class="btn btn-outline-secondary btn-sm py-0 px-1" target="_blank" title="Apri / Scarica">
+                    <i class="bi bi-download"></i>
+                  </a>
+                </div>
+              {% else %}—{% endif %}
+            </td>
+            <td>
               <form method="POST" action="{{ url_for('articolo_aggiorna', id=a.id) }}"
                     class="d-flex align-items-center gap-1">
                 <input type="number" name="quantita_spedita" value="{{ a.quantita_spedita|int }}"
@@ -510,7 +554,7 @@
           <tr>
             <td colspan="7">Totale</td>
             <td class="text-end">{{ articoli|sum(attribute='valore_articolo')|euro }}</td>
-            <td colspan="3"></td>
+            <td colspan="4"></td>
           </tr>
         </tfoot>
       </table>
@@ -558,6 +602,17 @@
             <label class="form-label small mb-1">Note</label>
             <input type="text" name="note" class="form-control form-control-sm">
           </div>
+          <div class="col-12">
+            <label class="form-label small mb-1">Scheda tecnica / documento (opzionale)</label>
+            <div class="file-picker-field">
+              <input type="hidden" name="percorso_allegato" id="articolo-percorso">
+              <span class="file-picker-label text-muted" id="articolo-percorso-label">Nessun file selezionato</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      onclick="apriSelettoreFile('articolo-percorso', 'articolo-percorso-label')">
+                <i class="bi bi-folder2-open"></i> Sfoglia cartella documenti
+              </button>
+            </div>
+          </div>
         </div>
         <div class="mt-2">
           <button type="submit" class="btn btn-primary btn-sm">Salva articolo</button>
@@ -571,7 +626,7 @@
   {# ---- FATTURATO ---- #}
   <div class="tab-pane fade p-3" id="fatturato">
     {% if c.righe_fatturato %}
-    <div class="table-responsive">
+    <div class="table-responsive mb-3">
       <table class="table table-sm table-hover mb-0">
         <thead>
           <tr>
@@ -580,6 +635,8 @@
             <th>Descrizione</th>
             <th class="text-end">Importo</th>
             <th>Fonte</th>
+            <th>File</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -590,6 +647,28 @@
             <td class="text-muted small">{{ r.descrizione or '—' }}</td>
             <td class="text-end">{{ r.importo|euro }}</td>
             <td class="text-muted small">{{ r.fonte or '—' }}</td>
+            <td>
+              {% if r.percorso_allegato %}
+                <div class="d-flex gap-1">
+                  <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                          data-anteprima-path="{{ r.percorso_allegato }}"
+                          data-anteprima-nome="{{ r.percorso_allegato.split('\\')[-1] }}"
+                          title="Anteprima">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <a href="{{ url_for('file_serve', path=r.percorso_allegato) }}"
+                     class="btn btn-outline-secondary btn-sm py-0 px-1" target="_blank" title="Apri / Scarica">
+                    <i class="bi bi-download"></i>
+                  </a>
+                </div>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('riga_fatturato_elimina', id=r.id) }}"
+                    onsubmit="return confirm('Eliminare la riga di fatturato?')">
+                <button class="btn btn-link btn-sm text-danger p-0"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -597,15 +676,61 @@
           <tr>
             <td colspan="3">Totale spedito</td>
             <td class="text-end text-success">{{ c.valore_spedito|euro }}</td>
-            <td></td>
+            <td colspan="3"></td>
           </tr>
         </tfoot>
       </table>
     </div>
     {% else %}
-    <p class="text-muted small">Nessuna riga di fatturato associata a questo contratto.
+    <p class="text-muted small mb-3">Nessuna riga di fatturato associata a questo contratto.
       <a href="{{ url_for('import_excel') }}">Importa da Excel</a></p>
     {% endif %}
+
+    <button class="btn btn-outline-primary btn-sm" onclick="toggleAddForm('add-fatturato')">
+      <i class="bi bi-plus-lg"></i> Aggiungi riga fatturato
+    </button>
+    <div id="add-fatturato" class="add-form-section mt-2" style="display:none">
+      <form method="POST" action="{{ url_for('riga_fatturato_nuova', contratto_id=c.id) }}">
+        <div class="row g-2">
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Data documento</label>
+            <input type="date" name="data_documento" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">N° documento</label>
+            <input type="text" name="numero_documento" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Importo (€)</label>
+            <input type="text" name="importo" class="form-control form-control-sm" placeholder="0,00">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small mb-1">Fonte</label>
+            <input type="text" name="fonte" class="form-control form-control-sm" placeholder="es. DDT manuale">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small mb-1">Descrizione</label>
+            <input type="text" name="descrizione" class="form-control form-control-sm">
+          </div>
+          <div class="col-12">
+            <label class="form-label small mb-1">Documento allegato (opzionale)</label>
+            <div class="file-picker-field">
+              <input type="hidden" name="percorso_allegato" id="fatturato-percorso">
+              <span class="file-picker-label text-muted" id="fatturato-percorso-label">Nessun file selezionato</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      onclick="apriSelettoreFile('fatturato-percorso', 'fatturato-percorso-label')">
+                <i class="bi bi-folder2-open"></i> Sfoglia cartella documenti
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-2">
+          <button type="submit" class="btn btn-primary btn-sm">Salva riga</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="toggleAddForm('add-fatturato')">Annulla</button>
+        </div>
+      </form>
+    </div>
   </div>
 
 </div>

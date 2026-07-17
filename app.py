@@ -5,6 +5,7 @@ from datetime import date, datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
+from docx import Document as DocxDocument
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'metra-contratti-2024'
@@ -13,6 +14,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
 db = SQLAlchemy(app)
+
+# Cartella di rete/condivisa in cui sono depositati i documenti (contratti, offerte,
+# ordini, revisioni...). Usata dal selettore file per attingere ai documenti esistenti
+# senza doverli ricaricare manualmente.
+DOCS_ROOT = r'C:\Users\bs_udeschini\Desktop\Progetto\Documenti'
+DOCS_ESTENSIONI = {'.pdf', '.docx', '.doc', '.xlsx', '.xls',
+                   '.png', '.jpg', '.jpeg', '.gif', '.webp'}
 
 
 # =============================================================================
@@ -100,6 +108,7 @@ class Ordine(db.Model):
     importo = db.Column(db.Float, default=0.0)
     stato = db.Column(db.String(50), default='aperto')
     note = db.Column(db.Text)
+    percorso_allegato = db.Column(db.String(1000))
 
 
 class Variante(db.Model):
@@ -135,6 +144,7 @@ class Articolo(db.Model):
     unita_misura = db.Column(db.String(20), default='pz')
     prezzo_unitario = db.Column(db.Float, default=0.0)
     note = db.Column(db.Text)
+    percorso_allegato = db.Column(db.String(1000))
 
     @property
     def stato_spedizione(self):
@@ -170,6 +180,7 @@ class RigaFatturato(db.Model):
     importo = db.Column(db.Float, default=0.0)
     descrizione = db.Column(db.Text)
     fonte = db.Column(db.String(200))
+    percorso_allegato = db.Column(db.String(1000))
     importato_il = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -509,7 +520,8 @@ def ordine_nuovo(contratto_id):
         data=parse_date(request.form.get('data')),
         importo=parse_float(request.form.get('importo', '0')),
         stato=request.form.get('stato', 'aperto'),
-        note=request.form.get('note', '').strip()
+        note=request.form.get('note', '').strip(),
+        percorso_allegato=request.form.get('percorso_allegato', '').strip() or None
     ))
     db.session.commit()
     flash('Ordine aggiunto.', 'success')
@@ -614,7 +626,8 @@ def articolo_nuovo(contratto_id):
         quantita_spedita=parse_float(request.form.get('quantita_spedita', '0')),
         unita_misura=request.form.get('unita_misura', 'pz').strip(),
         prezzo_unitario=parse_float(request.form.get('prezzo_unitario', '0')),
-        note=request.form.get('note', '').strip()
+        note=request.form.get('note', '').strip(),
+        percorso_allegato=request.form.get('percorso_allegato', '').strip() or None
     ))
     db.session.commit()
     flash('Articolo aggiunto.', 'success')
@@ -641,8 +654,72 @@ def articolo_aggiorna(id):
 
 
 # =============================================================================
-# ROUTE — ANTEPRIMA FILE
+# ROUTES — FATTURATO (inserimento manuale riga)
 # =============================================================================
+
+@app.route('/contratti/<int:contratto_id>/fatturato/nuovo', methods=['POST'])
+def riga_fatturato_nuova(contratto_id):
+    c = Contratto.query.get_or_404(contratto_id)
+    db.session.add(RigaFatturato(
+        contratto_id=contratto_id,
+        cliente_id=c.cliente_id,
+        progetto_id=c.progetto_id,
+        data_documento=parse_date(request.form.get('data_documento')),
+        numero_documento=request.form.get('numero_documento', '').strip(),
+        importo=parse_float(request.form.get('importo', '0')),
+        descrizione=request.form.get('descrizione', '').strip(),
+        fonte=request.form.get('fonte', '').strip() or 'Inserimento manuale',
+        percorso_allegato=request.form.get('percorso_allegato', '').strip() or None
+    ))
+    db.session.commit()
+    flash('Riga di fatturato aggiunta.', 'success')
+    return redirect(url_for('contratto_dettaglio', id=contratto_id) + '#fatturato')
+
+
+@app.route('/fatturato/<int:id>/elimina', methods=['POST'])
+def riga_fatturato_elimina(id):
+    r = RigaFatturato.query.get_or_404(id)
+    cid = r.contratto_id
+    db.session.delete(r)
+    db.session.commit()
+    flash('Riga di fatturato eliminata.', 'warning')
+    return redirect(url_for('contratto_dettaglio', id=cid) + '#fatturato') if cid \
+        else redirect(url_for('dashboard'))
+
+
+# =============================================================================
+# ROUTE — SELETTORE FILE (attinge alla cartella documenti condivisa)
+# =============================================================================
+
+@app.route('/file/browse')
+def file_browse():
+    """Restituisce l'albero dei documenti disponibili in DOCS_ROOT, raggruppati per cartella."""
+    if not os.path.isdir(DOCS_ROOT):
+        return jsonify({'cartelle': []})
+
+    cartelle = []
+    for cartella_corrente, dirs, files in os.walk(DOCS_ROOT):
+        dirs.sort()
+        nome_relativo = os.path.relpath(cartella_corrente, DOCS_ROOT)
+        nome_visualizzato = 'Documenti' if nome_relativo == '.' else nome_relativo.replace('\\', ' / ')
+
+        elenco_file = []
+        for f in sorted(files):
+            ext = os.path.splitext(f)[1].lower()
+            if ext not in DOCS_ESTENSIONI:
+                continue
+            percorso_completo = os.path.join(cartella_corrente, f)
+            elenco_file.append({
+                'nome': f,
+                'percorso': percorso_completo,
+                'estensione': ext.lstrip('.')
+            })
+
+        if elenco_file:
+            cartelle.append({'nome': nome_visualizzato, 'file': elenco_file})
+
+    return jsonify({'cartelle': cartelle})
+
 
 @app.route('/file/serve')
 def file_serve():
@@ -659,6 +736,59 @@ def file_serve():
     return send_file(path, mimetype=mime,
                      as_attachment=not inline,
                      download_name=os.path.basename(path))
+
+
+@app.route('/file/anteprima')
+def file_anteprima():
+    """Anteprima universale: PDF/immagini in iframe diretto, DOCX/XLSX renderizzati come HTML."""
+    path = request.args.get('path', '').strip()
+    if not path:
+        abort(400)
+    path = os.path.normpath(path)
+    if not os.path.isfile(path):
+        return render_template('file_anteprima.html', errore='File non trovato sul percorso indicato.',
+                               nome=os.path.basename(path))
+
+    ext = path.rsplit('.', 1)[-1].lower() if '.' in path else ''
+    nome = os.path.basename(path)
+
+    if ext == 'pdf' or ext in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'):
+        return redirect(url_for('file_serve', path=path))
+
+    if ext == 'docx':
+        try:
+            doc = DocxDocument(path)
+            blocchi = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    stile = (para.style.name or '').lower() if para.style is not None else ''
+                    livello = 'heading' if 'heading' in stile or 'title' in stile else 'paragrafo'
+                    blocchi.append({'tipo': livello, 'testo': para.text})
+            tabelle = []
+            for tbl in doc.tables:
+                righe = [[cella.text for cella in riga.cells] for riga in tbl.rows]
+                tabelle.append(righe)
+            return render_template('file_anteprima.html', nome=nome, tipo='docx',
+                                   blocchi=blocchi, tabelle=tabelle)
+        except Exception as e:
+            return render_template('file_anteprima.html', nome=nome,
+                                   errore=f'Impossibile leggere il documento: {e}')
+
+    if ext in ('xlsx', 'xls'):
+        try:
+            fogli = pd.read_excel(path, sheet_name=None)
+            fogli_html = {
+                nome_foglio: df.fillna('').to_html(classes='table table-sm table-bordered table-hover mb-0',
+                                                   index=False, border=0)
+                for nome_foglio, df in fogli.items()
+            }
+            return render_template('file_anteprima.html', nome=nome, tipo='xlsx', fogli=fogli_html)
+        except Exception as e:
+            return render_template('file_anteprima.html', nome=nome,
+                                   errore=f'Impossibile leggere il file Excel: {e}')
+
+    return render_template('file_anteprima.html', nome=nome,
+                           errore='Anteprima non disponibile per questo tipo di file. Usa "Apri" per scaricarlo.')
 
 
 # =============================================================================
@@ -782,8 +912,26 @@ def api_progetti():
 # INIT
 # =============================================================================
 
+def _migra_colonne_mancanti():
+    """Aggiunge in modo additivo le colonne introdotte dopo la creazione iniziale del DB."""
+    from sqlalchemy import text
+    colonne_richieste = {
+        'ordini': [('percorso_allegato', 'VARCHAR(1000)')],
+        'articoli': [('percorso_allegato', 'VARCHAR(1000)')],
+        'righe_fatturato': [('percorso_allegato', 'VARCHAR(1000)')],
+    }
+    with db.engine.connect() as conn:
+        for tabella, colonne in colonne_richieste.items():
+            esistenti = {row[1] for row in conn.execute(text(f'PRAGMA table_info({tabella})'))}
+            for nome_colonna, tipo_sql in colonne:
+                if nome_colonna not in esistenti:
+                    conn.execute(text(f'ALTER TABLE {tabella} ADD COLUMN {nome_colonna} {tipo_sql}'))
+                    conn.commit()
+
+
 with app.app_context():
     db.create_all()
+    _migra_colonne_mancanti()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

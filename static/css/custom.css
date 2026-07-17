@@ -14,6 +14,8 @@ body {
 .navbar-metra {
     background-color: var(--metra-dark) !important;
     border-bottom: 3px solid var(--metra-red);
+    padding-top: .5rem;
+    padding-bottom: .5rem;
 }
 .navbar-metra .navbar-brand {
     font-size: 1rem;
@@ -211,28 +213,92 @@ body {
     border: none;
 }
 
-/* ---- LOGO SVG in NAVBAR ---- */
+/* ---- SELETTORE FILE (campo "sfoglia cartella documenti") ---- */
+.file-picker-field {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .375rem;
+    padding: .25rem .5rem;
+}
+.file-picker-label {
+    font-size: .8rem;
+    flex: 1 1 auto;
+    min-width: 120px;
+    word-break: break-all;
+}
+#selettoreFileLista .list-group-item {
+    font-size: .85rem;
+    cursor: pointer;
+}
+
+/* ---- LOGO in NAVBAR ---- */
 .metra-logo-wrap {
     display: flex;
     align-items: center;
     gap: 8px;
     text-decoration: none;
 }
+.metra-logo-img {
+    height: 64px;
+    width: auto;
+}
 .metra-logo-text {
     line-height: 1.1;
 }
 .metra-logo-text .brand-main {
     display: block;
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 800;
     color: #fff;
     letter-spacing: .05em;
 }
 .metra-logo-text .brand-sub {
     display: block;
-    font-size: .65rem;
+    font-size: .68rem;
     font-weight: 500;
     color: var(--metra-red);
     letter-spacing: .18em;
     text-transform: uppercase;
+}
+
+/* ---- RIFERIMENTO NUMERO CONTRATTO ---- */
+.codice-contratto {
+    color: #0d6efd;
+}
+a.codice-contratto:hover {
+    color: #0a58ca;
+}
+
+/* ---- COLONNE RIDIMENSIONABILI ---- */
+.table-resizable th {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.table-resizable td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    z-index: 2;
+}
+.col-resize-handle:hover,
+body.col-resizing .col-resize-handle {
+    background-color: var(--metra-red);
+    opacity: .5;
+}
+body.col-resizing {
+    cursor: col-resize;
+    user-select: none;
 }

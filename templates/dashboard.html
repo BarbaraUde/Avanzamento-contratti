@@ -89,7 +89,7 @@
     <span class="badge bg-secondary ms-2">{{ contratti|length }}</span>
   </div>
   <div class="table-responsive">
-    <table class="table table-hover mb-0">
+    <table class="table table-hover mb-0 table-resizable">
       <thead>
         <tr>
           <th>Cliente</th>
@@ -99,6 +99,7 @@
           <th class="text-end">Spedito</th>
           <th style="min-width:140px">Avanzamento</th>
           <th class="text-end">Residuo</th>
+          <th>Periodo</th>
           <th>Stato</th>
           <th class="text-center">Var.</th>
           <th></th>
@@ -111,12 +112,9 @@
           <td class="fw-semibold">{{ c.cliente.nome }}</td>
           <td class="text-muted">{{ c.progetto.nome if c.progetto else '—' }}</td>
           <td>
-            <a href="{{ url_for('contratto_dettaglio', id=c.id) }}" class="text-decoration-none fw-semibold">
+            <a href="{{ url_for('contratto_dettaglio', id=c.id) }}" class="text-decoration-none fw-semibold codice-contratto">
               {{ c.codice or ('#' ~ c.id) }}
             </a>
-            {% if c.descrizione %}
-            <div class="text-muted" style="font-size:.78rem">{{ c.descrizione[:60] }}{% if c.descrizione|length > 60 %}…{% endif %}</div>
-            {% endif %}
           </td>
           <td class="text-end">{{ c.valore_totale|euro }}</td>
           <td class="text-end">{{ c.valore_spedito|euro }}</td>
@@ -127,6 +125,9 @@
             <span class="progress-label text-{{ pct|avanz_class }}">{{ pct }}%</span>
           </td>
           <td class="text-end fw-semibold text-danger">{{ c.valore_residuo|euro }}</td>
+          <td class="text-muted small text-nowrap">
+            {{ c.data_apertura|data_it }} → {{ c.data_chiusura|data_it }}
+          </td>
           <td>
             {% if c.stato == 'aperto' %}
               <span class="badge badge-aperto">aperto</span>
@@ -163,7 +164,7 @@
             <span class="progress-label">{{ avg_avanz }}%</span>
           </td>
           <td class="text-end text-danger">{{ tot_residuo|euro }}</td>
-          <td colspan="3"></td>
+          <td colspan="4"></td>
         </tr>
       </tfoot>
       {% endif %}

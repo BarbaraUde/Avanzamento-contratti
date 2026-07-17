@@ -54,7 +54,7 @@
     Elenco contratti <span class="badge bg-secondary ms-1">{{ contratti|length }}</span>
   </div>
   <div class="table-responsive">
-    <table class="table table-hover mb-0">
+    <table class="table table-hover mb-0 table-resizable">
       <thead>
         <tr>
           <th>Cliente</th>
@@ -76,7 +76,7 @@
           <td class="fw-semibold">{{ c.cliente.nome }}</td>
           <td class="text-muted small">{{ c.progetto.nome if c.progetto else '—' }}</td>
           <td>
-            <a href="{{ url_for('contratto_dettaglio', id=c.id) }}" class="fw-semibold text-decoration-none">
+            <a href="{{ url_for('contratto_dettaglio', id=c.id) }}" class="fw-semibold text-decoration-none codice-contratto">
               {{ c.codice or ('#' ~ c.id) }}
             </a>
           </td>

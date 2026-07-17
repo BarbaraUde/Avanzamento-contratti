@@ -13,26 +13,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark navbar-metra mb-3">
   <div class="container-fluid px-4">
     <a class="metra-logo-wrap navbar-brand" href="{{ url_for('dashboard') }}">
-      <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <!-- cerchio rosso di sfondo -->
-        <circle cx="50" cy="50" r="48" fill="#c41230"/>
-        <!-- ala sinistra nera -->
-        <path d="M 47,13
-                 C 44,18  20,30   8,50
-                 C  3,63  10,79  24,84
-                 C 33,87  44,82  48,76
-                 C 46,68  44,57  44,50
-                 C 44,40  45,27  47,13 Z"
-              fill="#1a1a1a"/>
-        <!-- ala destra nera (speculare) -->
-        <path d="M 53,13
-                 C 56,18  80,30  92,50
-                 C 97,63  90,79  76,84
-                 C 67,87  56,82  52,76
-                 C 54,68  56,57  56,50
-                 C 56,40  55,27  53,13 Z"
-              fill="#1a1a1a"/>
-      </svg>
+      <img src="{{ url_for('static', filename='img/logo-icona.png') }}" alt="METRA RAIL" class="metra-logo-img">
       <span class="metra-logo-text">
         <span class="brand-main">METRA</span>
         <span class="brand-sub">RAIL</span>
@@ -65,12 +46,6 @@
           <a class="nav-link {% if 'contratt' in request.endpoint %}active{% endif %}"
              href="{{ url_for('contratti_lista') }}">
             <i class="bi bi-file-text"></i> Contratti
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'import_excel' %}active{% endif %}"
-             href="{{ url_for('import_excel') }}">
-            <i class="bi bi-file-earmark-excel"></i> Import Excel
           </a>
         </li>
       </ul>
@@ -110,6 +85,23 @@
            target="_blank"><i class="bi bi-download"></i> Scarica / Apri</a>
         <button type="button" class="btn btn-secondary btn-sm"
                 data-bs-dismiss="modal">Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---- MODAL SELETTORE FILE (attinge alla cartella documenti condivisa) ---- #}
+<div class="modal fade" id="modalSelettoreFile" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title fw-semibold">Seleziona documento dalla cartella condivisa</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="selettoreFileFiltro" class="form-control form-control-sm mb-2"
+               placeholder="Cerca per nome file...">
+        <div id="selettoreFileLista"></div>
       </div>
     </div>
   </div>
