@@ -1,6 +1,7 @@
 import io
 import os
 import mimetypes
+import urllib.parse
 from datetime import date, datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
@@ -32,6 +33,7 @@ class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
     codice = db.Column(db.String(50))
+    email = db.Column(db.String(200))
     note = db.Column(db.Text)
     progetti = db.relationship('Progetto', backref='cliente', lazy='select',
                                cascade='all, delete-orphan')
@@ -299,6 +301,7 @@ def cliente_nuovo():
         db.session.add(Cliente(
             nome=nome,
             codice=request.form.get('codice', '').strip(),
+            email=request.form.get('email', '').strip(),
             note=request.form.get('note', '').strip()
         ))
         db.session.commit()
@@ -317,6 +320,7 @@ def cliente_modifica(id):
             return redirect(url_for('cliente_modifica', id=id))
         c.nome = nome
         c.codice = request.form.get('codice', '').strip()
+        c.email = request.form.get('email', '').strip()
         c.note = request.form.get('note', '').strip()
         db.session.commit()
         flash(f'Cliente "{c.nome}" aggiornato.', 'success')
@@ -505,6 +509,145 @@ def contratto_elimina(id):
     db.session.commit()
     flash(f'Contratto "{codice}" eliminato.', 'warning')
     return redirect(url_for('contratti_lista'))
+
+
+def _testo_default_closure_letter(c):
+    oggetto = (
+        f'Chiusura contratto {c.codice or ("#" + str(c.id))}'
+        + (f' — {c.progetto.nome}' if c.progetto else '')
+    )
+    corpo = (
+        f'Con la presente si comunica che il contratto {c.codice or ("#" + str(c.id))}'
+        + (f', relativo al progetto "{c.progetto.nome}",' if c.progetto else ',')
+        + ' risulta concluso con l\'evasione integrale delle forniture pattuite.'
+    )
+    chiusura = 'Si ringrazia per la collaborazione e si resta a disposizione per ogni chiarimento.'
+    return oggetto, corpo, chiusura
+
+
+@app.route('/contratti/<int:id>/closure-letter')
+def contratto_closure_letter(id):
+    c = Contratto.query.get_or_404(id)
+    if c.stato != 'chiuso':
+        flash('La closure letter è disponibile solo per i contratti chiusi.', 'danger')
+        return redirect(url_for('contratto_dettaglio', id=id))
+
+    oggetto, corpo, chiusura = _testo_default_closure_letter(c)
+    return render_template('closure_letter.html', c=c, oggetto=oggetto, corpo=corpo, chiusura=chiusura)
+
+
+def _genera_docx_closure_letter(c, oggetto, corpo, chiusura):
+    doc = DocxDocument()
+
+    doc.add_heading('Lettera di Chiusura Contratto', level=1)
+    doc.add_paragraph(f'Spett.le {c.cliente.nome}')
+    doc.add_paragraph('')
+    doc.add_paragraph(f'Oggetto: {oggetto}')
+    doc.add_paragraph('')
+    doc.add_paragraph(corpo)
+    doc.add_paragraph('')
+
+    tabella = doc.add_table(rows=0, cols=2)
+    tabella.style = 'Light Grid Accent 1'
+
+    def riga(etichetta, valore):
+        celle = tabella.add_row().cells
+        celle[0].text = etichetta
+        celle[1].text = valore
+
+    riga('Cliente', c.cliente.nome)
+    riga('Contratto', c.codice or f'#{c.id}')
+    riga('Progetto', c.progetto.nome if c.progetto else '—')
+    riga('Valore totale contratto', euro_filter(c.valore_totale))
+    riga('Totale spedito / fatturato', euro_filter(c.valore_spedito))
+    riga('Data apertura', data_it_filter(c.data_apertura))
+    riga('Data chiusura', data_it_filter(c.data_chiusura))
+    riga('Numero varianti registrate', str(c.num_varianti))
+
+    doc.add_paragraph('')
+    doc.add_paragraph(chiusura)
+    doc.add_paragraph('')
+    doc.add_paragraph('Distinti saluti,')
+    doc.add_paragraph('METRA RAIL')
+    doc.add_paragraph('')
+    p_firma = doc.add_paragraph()
+    run_firma = p_firma.add_run(
+        f'Documento firmato con approvazione confermata in app il {datetime.now().strftime("%d/%m/%Y alle %H:%M")}.'
+    )
+    run_firma.italic = True
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def _testo_email_closure_letter(c, oggetto, corpo, chiusura):
+    righe_riepilogo = [
+        f"Cliente: {c.cliente.nome}",
+        f"Contratto: {c.codice or ('#' + str(c.id))}",
+        f"Progetto: {c.progetto.nome if c.progetto else '—'}",
+        f"Valore totale contratto: {euro_filter(c.valore_totale)}",
+        f"Totale spedito / fatturato: {euro_filter(c.valore_spedito)}",
+        f"Data apertura: {data_it_filter(c.data_apertura)}",
+        f"Data chiusura: {data_it_filter(c.data_chiusura)}",
+    ]
+    return (
+        f"Spett.le {c.cliente.nome}\n\n"
+        f"{corpo}\n\n"
+        + "\n".join(righe_riepilogo)
+        + f"\n\n{chiusura}\n\nDistinti saluti,\nMETRA RAIL"
+    )
+
+
+@app.route('/contratti/<int:id>/closure-letter/genera', methods=['POST'])
+def contratto_closure_letter_genera(id):
+    c = Contratto.query.get_or_404(id)
+    if c.stato != 'chiuso':
+        flash('La closure letter è disponibile solo per i contratti chiusi.', 'danger')
+        return redirect(url_for('contratto_dettaglio', id=id))
+
+    oggetto_default, corpo_default, chiusura_default = _testo_default_closure_letter(c)
+    oggetto = request.form.get('oggetto', oggetto_default).strip()
+    corpo = request.form.get('corpo', corpo_default).strip()
+    chiusura = request.form.get('chiusura', chiusura_default).strip()
+
+    if not request.form.get('approvazione_firma'):
+        flash('Per generare il documento è necessario confermare l\'approvazione per la firma.', 'danger')
+        return render_template('closure_letter.html', c=c,
+                               oggetto=oggetto, corpo=corpo, chiusura=chiusura)
+
+    corpo_email = _testo_email_closure_letter(c, oggetto, corpo, chiusura)
+    mailto = (
+        f"mailto:{c.cliente.email or ''}"
+        f"?subject={urllib.parse.quote(oggetto)}"
+        f"&body={urllib.parse.quote(corpo_email)}"
+    )
+
+    return render_template('closure_letter_pronta.html', c=c,
+                           oggetto=oggetto, corpo=corpo, chiusura=chiusura, mailto=mailto)
+
+
+@app.route('/contratti/<int:id>/closure-letter/scarica', methods=['POST'])
+def contratto_closure_letter_scarica(id):
+    c = Contratto.query.get_or_404(id)
+    if c.stato != 'chiuso':
+        flash('La closure letter è disponibile solo per i contratti chiusi.', 'danger')
+        return redirect(url_for('contratto_dettaglio', id=id))
+
+    oggetto_default, corpo_default, chiusura_default = _testo_default_closure_letter(c)
+    oggetto = request.form.get('oggetto', oggetto_default).strip()
+    corpo = request.form.get('corpo', corpo_default).strip()
+    chiusura = request.form.get('chiusura', chiusura_default).strip()
+
+    buffer = _genera_docx_closure_letter(c, oggetto, corpo, chiusura)
+    nome_file = f'Closure_Letter_{(c.codice or c.id)}.docx'.replace('/', '-')
+    return send_file(
+        buffer,
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        as_attachment=True,
+        download_name=nome_file
+    )
 
 
 # =============================================================================
@@ -919,6 +1062,7 @@ def _migra_colonne_mancanti():
         'ordini': [('percorso_allegato', 'VARCHAR(1000)')],
         'articoli': [('percorso_allegato', 'VARCHAR(1000)')],
         'righe_fatturato': [('percorso_allegato', 'VARCHAR(1000)')],
+        'clienti': [('email', 'VARCHAR(200)')],
     }
     with db.engine.connect() as conn:
         for tabella, colonne in colonne_richieste.items():

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Closure Letter pronta — {{ c.codice or c.id }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb mb-0 small">
+    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Pipeline</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('contratto_dettaglio', id=c.id) }}">{{ c.codice or ('#' ~ c.id) }}</a></li>
+    <li class="breadcrumb-item active">Closure Letter</li>
+  </ol>
+</nav>
+
+<div class="alert alert-success">
+  <i class="bi bi-check-circle me-1"></i>
+  Firma approvata. La Closure Letter per <strong>{{ c.codice or ('#' ~ c.id) }}</strong> è pronta.
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-file-earmark-word me-1"></i>Documento Word</div>
+      <div class="card-body">
+        <p class="small text-muted">Scarica il documento generato per allegarlo manualmente all'email o conservarlo agli atti.</p>
+        <form method="POST" action="{{ url_for('contratto_closure_letter_scarica', id=c.id) }}">
+          <input type="hidden" name="oggetto" value="{{ oggetto }}">
+          <input type="hidden" name="corpo" value="{{ corpo }}">
+          <input type="hidden" name="chiusura" value="{{ chiusura }}">
+          <button type="submit" class="btn btn-dark btn-sm">
+            <i class="bi bi-download"></i> Scarica documento Word
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-envelope me-1"></i>Email al cliente</div>
+      <div class="card-body">
+        {% if not c.cliente.email %}
+        <div class="alert alert-warning small py-2 mb-2">
+          Nessuna email referente impostata per questo cliente.
+          <a href="{{ url_for('cliente_modifica', id=c.cliente.id) }}">Aggiungila qui</a>, poi torna su questa pagina.
+        </div>
+        {% endif %}
+        <p class="small text-muted">
+          Si aprirà il client di posta predefinito con destinatario, oggetto e testo già precompilati
+          (identici alla Closure Letter). Ricordati di allegare manualmente il documento scaricato.
+        </p>
+        <a href="{{ mailto }}" class="btn btn-outline-dark btn-sm">
+          <i class="bi bi-envelope-open"></i> Apri email precompilata
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-3">
+  <a href="{{ url_for('contratto_dettaglio', id=c.id) }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Torna al contratto
+  </a>
+</div>
+{% endblock %}

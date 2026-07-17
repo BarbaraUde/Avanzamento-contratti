@@ -39,6 +39,11 @@
         {% endif %}
       </div>
       <div class="d-flex gap-2">
+        {% if c.stato == 'chiuso' %}
+        <a href="{{ url_for('contratto_closure_letter', id=c.id) }}" class="btn btn-dark btn-sm">
+          <i class="bi bi-file-earmark-text"></i> Prepara Closure Letter
+        </a>
+        {% endif %}
         <a href="{{ url_for('contratto_modifica', id=c.id) }}" class="btn btn-outline-primary btn-sm">
           <i class="bi bi-pencil"></i> Modifica
         </a>

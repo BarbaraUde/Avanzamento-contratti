@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Closure Letter — {{ c.codice or c.id }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb mb-0 small">
+    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Pipeline</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('contratto_dettaglio', id=c.id) }}">{{ c.codice or ('#' ~ c.id) }}</a></li>
+    <li class="breadcrumb-item active">Closure Letter</li>
+  </ol>
+</nav>
+
+<h5 class="fw-bold text-primary mb-3">
+  <i class="bi bi-file-earmark-text me-1"></i>Prepara Closure Letter
+</h5>
+
+<div class="row g-3">
+  {# ---- RIEPILOGO CONTRATTO (sola lettura) ---- #}
+  <div class="col-12 col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Riepilogo contratto</div>
+      <div class="card-body small">
+        <div class="mb-2"><span class="text-muted">Cliente</span><br><strong>{{ c.cliente.nome }}</strong></div>
+        <div class="mb-2"><span class="text-muted">Contratto</span><br><strong class="codice-contratto">{{ c.codice or ('#' ~ c.id) }}</strong></div>
+        <div class="mb-2"><span class="text-muted">Progetto</span><br><strong>{{ c.progetto.nome if c.progetto else '—' }}</strong></div>
+        <div class="mb-2"><span class="text-muted">Valore totale</span><br><strong>{{ c.valore_totale|euro }}</strong></div>
+        <div class="mb-2"><span class="text-muted">Spedito / Fatturato</span><br><strong class="text-success">{{ c.valore_spedito|euro }}</strong></div>
+        <div class="mb-2"><span class="text-muted">Data apertura</span><br><strong>{{ c.data_apertura|data_it }}</strong></div>
+        <div class="mb-2"><span class="text-muted">Data chiusura</span><br><strong>{{ c.data_chiusura|data_it }}</strong></div>
+        <div class="mb-0"><span class="text-muted">Varianti registrate</span><br><strong>{{ c.num_varianti }}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  {# ---- FORM LETTERA (precompilato, modificabile) ---- #}
+  <div class="col-12 col-lg-8">
+    <form method="POST" action="{{ url_for('contratto_closure_letter_genera', id=c.id) }}" id="formClosureLetter">
+      <div class="card mb-3">
+        <div class="card-header">Testo della lettera <span class="text-muted small fw-normal">(precompilato, modificabile)</span></div>
+        <div class="card-body">
+          <div class="mb-2 small text-muted">Spett.le <strong>{{ c.cliente.nome }}</strong></div>
+
+          <label class="form-label small fw-semibold mb-1">Oggetto</label>
+          <input type="text" name="oggetto" class="form-control form-control-sm mb-3" value="{{ oggetto }}">
+
+          <label class="form-label small fw-semibold mb-1">Corpo del messaggio</label>
+          <textarea name="corpo" rows="4" class="form-control form-control-sm mb-3">{{ corpo }}</textarea>
+
+          <label class="form-label small fw-semibold mb-1">Formula di chiusura</label>
+          <textarea name="chiusura" rows="2" class="form-control form-control-sm">{{ chiusura }}</textarea>
+
+          <div class="small text-muted mt-2">
+            Al testo verrà allegata automaticamente la tabella di riepilogo del contratto mostrata a sinistra.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="approvazione_firma" value="1" id="approvazioneFirma" required>
+            <label class="form-check-label small" for="approvazioneFirma">
+              Confermo di aver revisionato il contenuto e <strong>approvo la firma</strong> di questo documento
+              per la generazione della Closure Letter.
+            </label>
+          </div>
+          <button type="submit" class="btn btn-dark btn-sm">
+            <i class="bi bi-check2-circle"></i> Approva e genera documento
+          </button>
+          <a href="{{ url_for('contratto_dettaglio', id=c.id) }}" class="btn btn-outline-secondary btn-sm">
+            Annulla
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
